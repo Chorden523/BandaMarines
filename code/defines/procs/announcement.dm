@@ -8,6 +8,13 @@
 #define YAUTJA_ANNOUNCE "You receive a message from your ship AI..." //preds announcement
 #define HIGHER_FORCE_ANNOUNCE SPAN_ANNOUNCEMENT_HEADER_BLUE("Unknown Higher Force")
 
+// SS220 ADD START - TTS
+#define TTS_DEFAULT_ANNOUNCER new /datum/announcer
+#define TTS_ARES_ANNOUNCER new /datum/announcer/ares
+#define TTS_YAUTJA_ANNOUNCER new /datum/announcer/yautja
+#define TTS_QUEEN_MOTHER_ANNOUNCER new /datum/announcer/queen_mother
+// SS220 ADD END - TTS
+
 //xenomorph hive announcement
 /proc/xeno_announcement(message, hivenumber, title = QUEEN_ANNOUNCE)
 	var/list/targets = GLOB.living_xeno_list + GLOB.dead_mob_list
@@ -17,7 +24,7 @@
 			if(!isobserver(X) && !istype(X)) //filter out any potential non-xenomorphs/observers mobs
 				targets.Remove(X)
 
-		announcement_helper(message, title, targets, sound(get_sfx("queen"),wait = 0,volume = 50))
+		announcement_helper(message, title, targets, sound(get_sfx("queen"),wait = 0,volume = 50), TTS_QUEEN_MOTHER_ANNOUNCER) // SS220 EDIT - TTS
 	else
 		for(var/mob/M in targets)
 			if(isobserver(M))
@@ -26,7 +33,7 @@
 			if(!istype(X) || !X.ally_of_hivenumber(hivenumber)) //additionally filter out those of wrong hive
 				targets.Remove(X)
 
-		announcement_helper(message, title, targets, sound(get_sfx("queen"),wait = 0,volume = 50))
+		announcement_helper(message, title, targets, sound(get_sfx("queen"),wait = 0,volume = 50), TTS_QUEEN_MOTHER_ANNOUNCER) // SS220 EDIT - TTS
 
 
 //general marine announcement
@@ -79,7 +86,7 @@
 	if(!isnull(signature))
 		message += "<br><br><i> Signed by, <br> [signature]</i>"
 
-	announcement_helper(message, title, targets, sound_to_play)
+	announcement_helper(message, title, targets, sound_to_play, TTS_ARES_ANNOUNCER) // SS220 EDIT - TTS
 
 //yautja ship AI announcement
 /proc/yautja_announcement(message, title = YAUTJA_ANNOUNCE, sound_to_play = sound('sound/misc/notice1.ogg'))
@@ -91,7 +98,7 @@
 		if(!isyautja(H) || H.stat != CONSCIOUS)
 			targets.Remove(H)
 
-	announcement_helper(message, title, targets, sound_to_play)
+	announcement_helper(message, title, targets, sound_to_play, TTS_YAUTJA_ANNOUNCER) // SS220 EDIT - TTS
 
 //AI announcement that uses talking into comms
 /proc/ai_announcement(message, sound_to_play = sound('sound/misc/interference.ogg'), logging = ARES_LOG_MAIN)
@@ -143,20 +150,34 @@
 		if(ARES_LOG_SECURITY)
 			log_ares_security(title, message, signature)
 
-	announcement_helper(message, title, targets, sound_to_play, quiet)
+	announcement_helper(message, title, targets, sound_to_play, TTS_ARES_ANNOUNCER) // SS220 EDIT - TTS
 
 /proc/all_hands_on_deck(message, title = MAIN_AI_SYSTEM, sound_to_play = sound('sound/misc/sound_misc_boatswain.ogg'))
-	shipwide_ai_announcement(message, title, sound_to_play, null, ARES_LOG_MAIN, FALSE)
+	var/list/targets = GLOB.human_mob_list + GLOB.dead_mob_list
+	for(var/mob/T in targets)
+		if(isobserver(T))
+			continue
+		if(!ishuman(T) || isyautja(T) || !is_mainship_level((get_turf(T))?.z))
+			targets.Remove(T)
 
-/proc/announcement_helper(message, title, list/targets, sound_to_play, quiet)
-	if(!message || !title || !targets) //Shouldn't happen
+	log_ares_announcement("Shipwide Update", message, title)
+
+	announcement_helper(message, title, targets, sound_to_play, TTS_ARES_ANNOUNCER) // SS220 EDIT - TTS
+
+//the announcement proc that handles announcing for each mob in targets list
+/proc/announcement_helper(message, title, list/targets, sound_to_play,
+									var/datum/announcer/announcer = TTS_DEFAULT_ANNOUNCER)	// SS220 EDIT - TTS
+	if(!message || !title || !sound_to_play || !targets) //Shouldn't happen
 		return
 	for(var/mob/target in targets)
 		if(istype(target, /mob/new_player))
 			continue
 
-		to_chat_spaced(target, html = "[SPAN_ANNOUNCEMENT_HEADER(title)]<br><br>[SPAN_ANNOUNCEMENT_BODY(message)]", type = MESSAGE_TYPE_RADIO)
-		if(!quiet)
-			if(isobserver(target) && !(target.client?.prefs?.toggles_sound & SOUND_OBSERVER_ANNOUNCEMENTS))
-				continue
-			playsound_client(target.client, sound_to_play, target, vol = 45)
+		to_chat_spaced(T, html = "[SPAN_ANNOUNCEMENT_HEADER(title)]<br><br>[SPAN_ANNOUNCEMENT_BODY(message)]", type = MESSAGE_TYPE_RADIO)
+		if(isobserver(T) && !(T.client?.prefs?.toggles_sound & SOUND_OBSERVER_ANNOUNCEMENTS))
+			continue
+		playsound_client(T.client, sound_to_play, T, vol = 45)
+
+		// SS220 ADD START - TTS
+		announcer.Message(message = message, receivers = targets)
+		// SS220 ADD END - TTS
