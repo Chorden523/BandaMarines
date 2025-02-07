@@ -153,33 +153,23 @@
 	announcement_helper(message, title, targets, sound_to_play, TTS_ARES_ANNOUNCER) // SS220 EDIT - TTS
 
 /proc/all_hands_on_deck(message, title = MAIN_AI_SYSTEM, sound_to_play = sound('sound/misc/sound_misc_boatswain.ogg'))
-	var/list/targets = GLOB.human_mob_list + GLOB.dead_mob_list
-	for(var/mob/T in targets)
-		if(isobserver(T))
-			continue
-		if(!ishuman(T) || isyautja(T) || !is_mainship_level((get_turf(T))?.z))
-			targets.Remove(T)
+	shipwide_ai_announcement(message, title, sound_to_play, null, ARES_LOG_MAIN, FALSE)
 
-	log_ares_announcement("Shipwide Update", message, title)
-
-	announcement_helper(message, title, targets, sound_to_play, TTS_ARES_ANNOUNCER) // SS220 EDIT - TTS
-
-//the announcement proc that handles announcing for each mob in targets list
-/proc/announcement_helper(message, title, list/targets, sound_to_play,
-									datum/announcer/announcer = TTS_DEFAULT_ANNOUNCER)	// SS220 EDIT - TTS
-	if(!message || !title || !sound_to_play || !targets) //Shouldn't happen
+/proc/announcement_helper(message, title, list/targets, sound_to_play, quiet, datum/announcer/announcer = TTS_DEFAULT_ANNOUNCER) // SS220 EDIT - TTS)
+	if(!message || !title || !targets) //Shouldn't happen
 		return
 	for(var/mob/target in targets)
 		if(istype(target, /mob/new_player))
 			continue
 
-		to_chat_spaced(T, html = "[SPAN_ANNOUNCEMENT_HEADER(title)]<br><br>[SPAN_ANNOUNCEMENT_BODY(message)]", type = MESSAGE_TYPE_RADIO)
-		if(isobserver(T) && !(T.client?.prefs?.toggles_sound & SOUND_OBSERVER_ANNOUNCEMENTS))
-			continue
-		playsound_client(T.client, sound_to_play, T, vol = 45)
+		to_chat_spaced(target, html = "[SPAN_ANNOUNCEMENT_HEADER(title)]<br><br>[SPAN_ANNOUNCEMENT_BODY(message)]", type = MESSAGE_TYPE_RADIO)
+		if(!quiet)
+			if(isobserver(target) && !(target.client?.prefs?.toggles_sound & SOUND_OBSERVER_ANNOUNCEMENTS))
+				continue
+			playsound_client(target.client, sound_to_play, target, vol = 45)
 
 		// SS220 ADD START - TTS
-		if(isobserver(T) && !(T.client?.prefs?.toggles_sound & SOUND_OBSERVER_ANNOUNCEMENTS))
+		if(isobserver(target) && !(target.client?.prefs?.toggles_sound & SOUND_OBSERVER_ANNOUNCEMENTS))
 			continue
-		announcer.Message(message = message, receivers = list(T))
+		announcer.Message(message = message, receivers = list(target))
 		// SS220 ADD END - TTS
